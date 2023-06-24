@@ -33,6 +33,9 @@ bool lockFeedback() {
 void unlockFeedback() {
     xSemaphoreGive(feedbackSemaphore);
 }
+
+bool ActivateCruiseControl = false;
+
 void parseChar(byte uiChar) {
     incomingByte = uiChar;
 //    Serial.printf(" 0x%02X", uiChar);
@@ -52,7 +55,7 @@ void parseChar(byte uiChar) {
     if (idx == sizeof(SerialFeedback)) {
         uint16_t checksum;
         checksum = (uint16_t)(NewFeedback.start ^ NewFeedback.cmd1 ^ NewFeedback.cmd2 ^ NewFeedback.speedR_meas ^ NewFeedback.speedL_meas
-                            ^ NewFeedback.batVoltage ^ NewFeedback.boardTemp ^ NewFeedback.cmdLed);
+                            ^ NewFeedback.batVoltage ^ NewFeedback.boardTemp ^ NewFeedback.cmdLed ^ NewFeedback.current);
 
         // Check validity of the new data
         if (NewFeedback.start == START_FRAME && checksum == NewFeedback.checksum) {
@@ -71,11 +74,14 @@ void parseChar(byte uiChar) {
             Serial.print(" 5: ");  Serial.print(Feedback.batVoltage);
             Serial.print(" 6: ");  Serial.print(Feedback.boardTemp);
             Serial.print(" 7: ");  Serial.print(Feedback.cmdLed);
+            Serial.print(" 8: ");  Serial.print(Feedback.current);
             speedCombined = (float)(abs(Feedback.speedR_meas)+ abs(Feedback.speedL_meas)) / 2.0;
             speedCombined *= 0.55;      // m/min
             speedCombined *= 60.0;      // m/h
             speedCombined /= 1000.0;    // km/h
-            Serial.printf(" 8: %5.2f\n",speedCombined);
+            Serial.printf(" 9: %5.2f\n",speedCombined);
+            if ((speedCombined > 7.0) && !ActivateCruiseControl)
+                ActivateCruiseControl = true;
             // 55cm ein Reifen im Umfang
         } else {
           Serial.println("Non-valid data skipped");
@@ -91,13 +97,14 @@ void parseChar(byte uiChar) {
 unsigned long iTimeSend = 0;
 
 // ########################## SEND ##########################
-void Send(int16_t uSteer, int16_t uSpeed)
+void Send(int16_t uSteer, int16_t uSpeed, uint16_t uiControl)
 {
   // Create command
   Command.start    = (uint16_t)START_FRAME;
   Command.steer    = (int16_t)uSteer;
   Command.speed    = (int16_t)uSpeed;
-  Command.checksum = (uint16_t)(Command.start ^ Command.steer ^ Command.speed);
+  Command.control  = (uint16_t)uiControl;
+  Command.checksum = (uint16_t)(Command.start ^ Command.steer ^ Command.speed ^ Command.control);
 
   // Write to Serial
   Serial1.write((uint8_t *) &Command, sizeof(Command)); 
@@ -108,6 +115,8 @@ void Send(int16_t uSteer, int16_t uSpeed)
 
 void communication_task(void *param) {
     int iSpeed = 0;
+    bool bSendTorque = true;
+    uint16_t    uiControl = 0;
     Serial1.begin(115200, SERIAL_8N1, BBCAR_RX, BBCAR_TX);
     unsigned int uiStart = millis();
     vTaskDelay(100);
@@ -115,11 +124,19 @@ void communication_task(void *param) {
         unsigned long timeNow = millis();
         // Send commands
         if (iTimeSend <= timeNow) {
+/*            if (ActivateCruiseControl)
+                uiControl = (1 << 0);
+            else
+                uiControl = 0;*/
             iTimeSend = timeNow + TIME_SEND;
             if ((millis()-uiStart) > 30000)
-                Send(0, 0);
+                bSendTorque = false;
+                
+            if (bSendTorque)
+                Send(0, 50, uiControl);
             else
-                Send(0, 50);
+                Send(0, 0, uiControl);
+
         }
         if (Serial1.available()) {
             parseChar(Serial1.read());

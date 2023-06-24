@@ -13,6 +13,7 @@ typedef struct{
    uint16_t start;
    int16_t  steer;
    int16_t  speed;
+   uint16_t control;
    uint16_t checksum;
 } SerialCommand;
 /*
@@ -33,7 +34,7 @@ Brauche:
       #define MULTI_MODE_DRIVE_M3_RATE  450
       #define MULTI_MODE_M3_I_MOT_MAX   I_MOT_MAX
       #define MULTI_MODE_M3_N_MOT_MAX   N_MOT_MAX
-
+   - Strom (lesen)
 Future:
     - Field Weakening
 */
@@ -52,6 +53,7 @@ typedef struct{
    int16_t  batVoltage;
    int16_t  boardTemp;
    uint16_t cmdLed;
+   int16_t  current;
    uint16_t checksum;
 } SerialFeedback;
 

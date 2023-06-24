@@ -310,6 +310,13 @@ void ui_task(void* param) {
     lv_obj_set_style_text_align(Overview_gauge_label_1, LV_TEXT_ALIGN_CENTER,
                                 0);
 
+    lv_obj_t* SpannungLabel = lv_label_create(mainscreen);
+    lv_obj_set_pos(SpannungLabel, 100+ 70 / 2, 110 / 2);
+    lv_obj_set_size(SpannungLabel, 100 / 2, 40 / 2);
+    lv_label_set_text(SpannungLabel, "0");
+    lv_label_set_long_mode(SpannungLabel, LV_LABEL_LONG_WRAP);
+    lv_obj_set_style_text_align(SpannungLabel, LV_TEXT_ALIGN_CENTER,
+                                0);
     // Write style state: LV_STATE_DEFAULT for
     // style_overview_gauge_label_1_main_main_default
     static lv_style_t style_overview_gauge_label_1_main_main_default;
@@ -434,6 +441,7 @@ void ui_task(void* param) {
         }
 #endif        
         if (lockFeedback()) {
+            float voltage = (float)Feedback.batVoltage / 100.0;
             float speedCombined = (float)(abs(Feedback.speedR_meas)+ abs(Feedback.speedL_meas)) / 2.0;
             unlockFeedback();
             speedCombined *= 0.55;      // m/min
@@ -441,6 +449,7 @@ void ui_task(void* param) {
             speedCombined /= 1000.0;    // km/h
 
             uiSpeed = speedCombined * 10;
+            lv_label_set_text(SpannungLabel, String(voltage,2).c_str());
         }
         lv_img_set_angle(Overview_needle_img, (1500) + (uiSpeed * 10.0));
         lv_label_set_text(Overview_gauge_label_1, String((uint16_t)uiSpeed / 10).c_str());
